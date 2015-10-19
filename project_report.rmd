@@ -1,0 +1,110 @@
+---
+title: "Grading the Performance of Activity by Machine Learning Algorithm"
+author: "Wenhe (Wayne) Ye"
+date: "October 19, 2015"
+output: html_document
+---
+
+#Abstract
+
+
+#Getting and Preprocessing Data
+
+First things first, we load the 'caret' library to set up the machine learning environment. In order to ensure the reproducibility, a random seed is set at the begining.
+
+```{r results='hide',warning=FALSE}
+library(caret)
+set.seed(123)
+```
+
+Both the csv files are read into mememory.
+
+```{r results='hide'}
+training_raw<-read.csv('pml-training.csv')
+testing_raw<-read.csv('pml-testing.csv')
+```
+
+Since the data have lots of null values, we need to take care of them before we carry out our experiment. Also, irrelevant attributes are truncated. (the very first 7 columns are removed) Some of the factor variables are transformed into numerical values. In our study, we only keep the attributes whose NA (or blank) ratio is less than 10%. Missing values are imputed by 'K nearest mean' approach and all the records are standardized. Detailed procedure can be find in the following code:
+
+```{r}
+# build a function to check the proportion for missing values in each column
+NA_rate<-function(v){
+        if (class(v)=="factor")
+                {
+                sum((v==''))/length(v)
+            }
+            else sum(is.na(v))/length(v)
+}
+# find the columns with less than 10% missing values
+c_NA_ratio<-0.1
+selectCol<-(sapply(training_raw,NA_rate))<c_NA_ratio
+
+# a preprocessing function is customized thus both the training set and testing set can be treated in the same fashion
+preprocess_act<-function(dataframe){
+        dataframe_out<-dataframe[,selectCol]
+        dataframe_out<-dataframe_out[,-c(1:7)] #truncate non-motional variables
+        
+        for (i in 1:(ncol(dataframe_out)-1)) #leave the classe be factor
+                {
+                #print(class(dataframe_out[,i]))
+                if (class(dataframe_out[,i])=="factor")
+                        dataframe_out[,i]<-as.numeric(as.character(dataframe_out[,i]))
+                #print(class(dataframe_out[,i]))
+        }
+        
+        prep_obj1<-preProcess(dataframe_out[,-ncol(dataframe_out)],method="knnImpute") # missing imputation
+        imputed<-predict(prep_obj1,dataframe_out[,-ncol(dataframe_out)])
+        for (i in 1:(ncol(dataframe_out)-1)){
+                dataframe_out[,i]<-(imputed[,i]-mean(imputed[,i]))/sd(imputed[,i]) #standardize
+        }
+        data.frame(dataframe_out)
+}
+
+```
+
+#Exploratory Analysis
+
+The training set can be retrieved by the aforementioned function calls.
+
+```{r}
+training_0<-preprocess_act(training_raw)
+```
+
+We may interested to see how well the results can be separated by the features. For visualizing the result, we perform an exploratory principal components analysis to the training set. We make a scatterplot on its first and second principal components.
+
+```{r warning=FALSE}
+preProc<-preProcess(training_0[,-ncol(training_0)],method='pca',thresh = 0.9)
+training_pc<-predict(preProc,training_0[,-ncol(training_0)])
+plot(training_pc[,1],training_pc[,2],col=as.numeric(training_0$classe),alfa=0.6)
+```
+
+We are pleased to see some plausible separation. We may expect better separation results if we include more principal components into the model, as there are a total of 19 principal components.
+
+#Experiment Design
+Besides, we need to slice the training data into 2 parts therefore we can validate the performance our model before it is throwed to the real test data. 30% of the training data are left for validation purpose.
+```{r}
+inTrain<-createDataPartition(y=training_0$classe,p=0.7,list=FALSE)
+training<-training_0[inTrain,]
+validating<-training_0[-inTrain,]
+```
+
+#Model-based Predicion & Cross Validation
+We use the "gbm" method (Boosting) to build the predicion model and include the principal components analysis as preprocessing method.
+The model estimation may take up for a while depending on your computer's capability.
+```{r cache=TRUE,warning=FALSE}
+modelfit<-train(classe~.,methods="gbm",preProcess="pca",thresh=0.9,data=training)
+```
+
+The confusion matrix indicates a satisfactory result and the **out of sample** accuracy is about **97.6%**.
+```{r}
+prediction_valid<-predict(modelfit,validating)
+confusionMatrix(prediction_valid,validating$classe)
+```
+#Applying Model to the Test Set
+We use the customized function to preprocess our raw test data and grade them using our fitted model.
+```{r}
+testing<-preprocess_act(testing_raw)
+answers<-predict(modelfit,testing)
+names(answers)<-as.character(1:20)
+print (answers)
+```
