@@ -6,7 +6,9 @@ output: html_document
 ---
 
 #Abstract
+The motivation of the study is to find patterns of human activity from vast amount of data thus guide people to work out more efficiently. In this study we built a boosting model based on the training set and addressed the problem of quantifing and evaluating the quality of certain human activities. By introducing cross validation, the out of sample accuracy of our model is estimated to be 97.6%.
 
+**Key words**: machine learning, cross validation, principal components analysis, human activity 
 
 #Getting and Preprocessing Data
 
