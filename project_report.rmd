@@ -77,7 +77,7 @@ We may interested to see how well the results can be separated by the features. 
 ```{r warning=FALSE}
 preProc<-preProcess(training_0[,-ncol(training_0)],method='pca',thresh = 0.9)
 training_pc<-predict(preProc,training_0[,-ncol(training_0)])
-plot(training_pc[,1],training_pc[,2],col=as.numeric(training_0$classe),alfa=0.6)
+plot(training_pc[,1],training_pc[,2],col=as.numeric(training_0$classe))
 ```
 
 We are pleased to see some plausible separation. We may expect better separation results if we include more principal components into the model, as there are a total of 19 principal components.
